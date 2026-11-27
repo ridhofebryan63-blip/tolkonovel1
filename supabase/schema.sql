@@ -5,6 +5,7 @@ create table public.profiles (
   username text not null unique check (username ~ '^[A-Za-z0-9_]{3,30}$'),
   full_name text,
   author_bio text,
+  avatar_url text,
   role text not null default 'user' check (role in ('user','admin')),
   created_at timestamptz not null default now()
 );
@@ -44,19 +45,28 @@ begin
   if exists(select 1 from public.profiles where lower(username)=lower(chosen_name)) then
     chosen_name := left(base_name,24) || '_' || substr(new.id::text,1,5);
   end if;
-  insert into public.profiles(id,username,full_name) values(new.id,chosen_name, nullif(new.raw_user_meta_data->>'full_name',''));
+  insert into public.profiles(id,username,full_name,avatar_url)
+  values(
+    new.id,
+    chosen_name,
+    coalesce(nullif(new.raw_user_meta_data->>'full_name',''), nullif(new.raw_user_meta_data->>'name','')),
+    coalesce(nullif(new.raw_user_meta_data->>'avatar_url',''), nullif(new.raw_user_meta_data->>'picture',''))
+  );
   return new;
 end $$;
 create trigger on_auth_user_created after insert on auth.users for each row execute procedure public.handle_new_user();
+revoke all on function public.handle_new_user() from public, anon, authenticated;
 
 create or replace function public.update_rating_stats() returns trigger language plpgsql security definer set search_path = '' as $$
 declare target uuid := coalesce(new.novel_id,old.novel_id);
 begin update public.novels set rating_count=(select count(*) from public.ratings where novel_id=target), rating_average=coalesce((select round(avg(rating)::numeric,2) from public.ratings where novel_id=target),0) where id=target; return coalesce(new,old); end $$;
 create trigger ratings_stats after insert or update or delete on public.ratings for each row execute procedure public.update_rating_stats();
+revoke all on function public.update_rating_stats() from public, anon, authenticated;
 create or replace function public.update_favorite_stats() returns trigger language plpgsql security definer set search_path = '' as $$
 declare target uuid := coalesce(new.novel_id,old.novel_id);
 begin update public.novels set favorites_count=(select count(*) from public.libraries where novel_id=target) where id=target; return coalesce(new,old); end $$;
 create trigger library_stats after insert or delete on public.libraries for each row execute procedure public.update_favorite_stats();
+revoke all on function public.update_favorite_stats() from public, anon, authenticated;
 
 create or replace function public.notify_followers_new_chapter() returns trigger language plpgsql security definer set search_path = '' as $$
 begin
@@ -68,6 +78,7 @@ begin
   return new;
 end $$;
 create trigger chapter_notifications after insert or update of status on public.chapters for each row execute procedure public.notify_followers_new_chapter();
+revoke all on function public.notify_followers_new_chapter() from public, anon, authenticated;
 
 alter table public.profiles enable row level security;
 alter table public.genres enable row level security;
@@ -92,10 +103,10 @@ create policy "Novel genres visible with novel" on public.novel_genres for selec
 create policy "Authors manage novel genres" on public.novel_genres for all using (exists(select 1 from public.novels n where n.id=novel_id and n.author_id=auth.uid())) with check (exists(select 1 from public.novels n where n.id=novel_id and n.author_id=auth.uid()));
 create policy "Published chapters or own chapters are visible" on public.chapters for select using ((status='published' and deleted_at is null and exists(select 1 from public.novels n where n.id=novel_id and n.status='published' and n.deleted_at is null)) or author_id=auth.uid());
 create policy "Authors create chapters" on public.chapters for insert with check (author_id=auth.uid() and exists(select 1 from public.novels n where n.id=novel_id and n.author_id=auth.uid()));
-create policy "Authors update chapters" on public.chapters for update using (author_id=auth.uid()) with check (author_id=auth.uid());
+create policy "Authors update chapters" on public.chapters for update using (author_id=auth.uid()) with check (author_id=auth.uid() and exists(select 1 from public.novels n where n.id=novel_id and n.author_id=auth.uid()));
 create policy "Ratings are public" on public.ratings for select using (true);
 create policy "Users write own ratings" on public.ratings for insert with check (user_id=auth.uid() and not exists(select 1 from public.novels where id=novel_id and author_id=auth.uid()));
-create policy "Users update own ratings" on public.ratings for update using (user_id=auth.uid()) with check (user_id=auth.uid());
+create policy "Users update own ratings" on public.ratings for update using (user_id=auth.uid()) with check (user_id=auth.uid() and not exists(select 1 from public.novels where id=novel_id and author_id=auth.uid()));
 create policy "Users delete own ratings" on public.ratings for delete using (user_id=auth.uid());
 create policy "Users manage own library" on public.libraries for all using (user_id=auth.uid()) with check (user_id=auth.uid());
 create policy "Follows visible to participants" on public.follows for select using (follower_id=auth.uid() or following_id=auth.uid());
@@ -113,7 +124,25 @@ create policy "Users read own notifications" on public.notifications for select 
 create policy "Users update own notifications" on public.notifications for update using (user_id=auth.uid()) with check (user_id=auth.uid());
 
 insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types) values('covers','covers',true,2097152,array['image/jpeg','image/png','image/webp']) on conflict(id) do nothing;
+insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types) values('avatars','avatars',true,2097152,array['image/jpeg','image/png','image/webp']) on conflict(id) do nothing;
 create policy "Cover images are public" on storage.objects for select using(bucket_id='covers');
 create policy "Users upload their own covers" on storage.objects for insert to authenticated with check(bucket_id='covers' and (storage.foldername(name))[1]=auth.uid()::text);
 create policy "Users update their own covers" on storage.objects for update to authenticated using(bucket_id='covers' and (storage.foldername(name))[1]=auth.uid()::text) with check(bucket_id='covers' and (storage.foldername(name))[1]=auth.uid()::text);
 create policy "Users delete their own covers" on storage.objects for delete to authenticated using(bucket_id='covers' and (storage.foldername(name))[1]=auth.uid()::text);
+create policy "Author avatars are public" on storage.objects for select using(bucket_id='avatars');
+create policy "Users upload their own avatar" on storage.objects for insert to authenticated with check(bucket_id='avatars' and (storage.foldername(name))[1]=auth.uid()::text);
+create policy "Users update their own avatar" on storage.objects for update to authenticated using(bucket_id='avatars' and (storage.foldername(name))[1]=auth.uid()::text) with check(bucket_id='avatars' and (storage.foldername(name))[1]=auth.uid()::text);
+create policy "Users delete their own avatar" on storage.objects for delete to authenticated using(bucket_id='avatars' and (storage.foldername(name))[1]=auth.uid()::text);
+
+-- Kolom profil yang boleh diubah pengguna. role, username, dan id tidak dapat diubah lewat API publik.
+revoke update on public.profiles from authenticated;
+grant update(full_name, author_bio, avatar_url) on public.profiles to authenticated;
+-- Angka statistik hanya diubah oleh trigger/database, bukan client browser.
+revoke update on public.novels from authenticated;
+grant update(title, synopsis, cover_url, status, publication_status, age_rating, deleted_at, updated_at) on public.novels to authenticated;
+revoke update on public.chapters from authenticated;
+grant update(title, content, status, word_count, published_at, deleted_at) on public.chapters to authenticated;
+revoke update on public.ratings from authenticated;
+grant update(rating, review_content) on public.ratings to authenticated;
+revoke update on public.reports from authenticated;
+grant update(status) on public.reports to authenticated;

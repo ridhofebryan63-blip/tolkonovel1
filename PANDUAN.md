@@ -2,6 +2,8 @@
 
 Web ini memakai **Next.js** (tampilan) dan **Supabase** (database, login, penyimpanan gambar). Hosting memakai **Vercel**. Ketiganya punya paket gratis yang cukup untuk memulai.
 
+Versi Next.js sudah diperbarui ke 16.4.6. Gunakan Node.js LTS versi 20.9 atau lebih baru.
+
 Waktu yang dibutuhkan: sekitar 30–45 menit.
 
 ---
@@ -32,12 +34,19 @@ Cek Node sudah terpasang: buka Terminal (Windows: PowerShell), ketik `node -v`. 
    - **anon / public key** (teks panjang yang diawali `eyJ...` atau `sb_publishable_...`)
    Jangan memakai `service_role` key di web ini. Kunci itu rahasia.
 
-### Pengaturan konfirmasi email (pilih salah satu)
+### Pendaftaran email tanpa email OTP
 
-Secara bawaan, orang yang mendaftar harus mengklik link di email dulu. Supabase gratis membatasi jumlah email per jam, jadi untuk percobaan lebih mudah dimatikan:
+Form menyediakan daftar/masuk dengan email dan kata sandi serta tombol Google. Jika tidak ingin mengatur SMTP/domain, buka **Authentication → Sign In / Providers → Email** dan matikan **Confirm email**, lalu **Save**. Pendaftaran email akan langsung masuk tanpa mengirim email. Konsekuensinya, alamat email akun tersebut tidak diverifikasi; pengguna yang memiliki akses ke Google sebaiknya memakai tombol Google.
 
-- Menu **Authentication → Sign In / Providers → Email**, matikan **Confirm email**, lalu **Save**.
-- Untuk web publik sungguhan, sebaiknya aktifkan lagi dan pasang SMTP sendiri (Authentication → SMTP Settings), misalnya lewat Resend atau Brevo.
+Google perlu dikonfigurasi sekali:
+
+1. Di Supabase **Authentication → Providers → Google**, aktifkan Google dan salin callback URL yang ditampilkan.
+2. Di Google Cloud Console buat OAuth Client ID tipe **Web application**. Tambahkan origin lokal `http://localhost:3000` dan origin produksi situsmu. Pada **Authorized redirect URIs**, tempel callback URL dari Supabase.
+3. Salin Client ID dan Client Secret Google ke pengaturan provider Google di Supabase, lalu simpan.
+4. Di Supabase **Authentication → URL Configuration**, tambahkan Redirect URLs `http://localhost:3000/auth/callback` dan `https://ALAMAT-SITUS-KAMU/auth/callback`.
+5. Jalankan ulang `supabase/security_hardening.sql` agar trigger profil menyimpan nama dan foto dari Google.
+
+Jangan masukkan Google Client Secret atau Supabase `service_role` key ke source code atau variabel `NEXT_PUBLIC_*`.
 
 ---
 
@@ -73,13 +82,13 @@ Untuk menghentikan: tekan `Ctrl + C` di Terminal.
 
 ### Menjadikan diri sendiri admin
 
-Admin bisa melihat laporan dan menangguhkan novel. Setelah mendaftar, buka Supabase **SQL Editor** dan jalankan (ganti `namamu` dengan nama pengguna kamu):
+Daftar dahulu di `/login` dengan email yang bisa kamu akses, konfirmasi email bila diminta, lalu masuk. Buka Supabase **SQL Editor**, salin `supabase/make_admin.sql`, ganti `nama_pengguna_di_sini` dengan username akunmu, lalu klik **Run**. Jangan bagikan kata sandi admin atau simpan di kode. Menu **Profil → Panel admin** akan muncul setelah masuk ulang.
 
-```sql
-update public.profiles set role = 'admin' where username = 'namamu';
-```
+Jika database sudah dibuat sebelum pembaruan keamanan, jalankan `supabase/security_hardening.sql` terlebih dahulu. Script ini membatasi kolom yang dapat diubah lewat browser dan mengunci foto profil.
 
-Menu **Profil → Panel admin** akan muncul.
+### Foto penulis dan novel contoh
+
+Di **Profil**, unggah foto penulis JPG, PNG, atau WebP hingga 2 MB; foto tampil pada halaman penulis. Setelah punya akun, kamu bisa memasang novel contoh melalui SQL Editor dengan `supabase/sample_novel.sql` (ganti username placeholder). Sesudah itu novel dan bab contoh tampil publik.
 
 ### Mengisi genre tambahan
 
@@ -116,6 +125,8 @@ git push -u origin main
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 3. Klik **Deploy**. Tunggu 1–2 menit. Kamu akan mendapat alamat seperti `https://tolkonovel.vercel.app`.
+
+Catatan: paket Vercel Hobby gratis ditujukan untuk proyek personal/non-komersial. Jika TolkoNovel menjadi layanan komersial, cek ketentuan paket sebelum menggunakannya.
 
 ### D3. Beri tahu Supabase alamat webmu (wajib)
 
@@ -159,8 +170,7 @@ Vercel otomatis memasang versi terbarunya.
 | Gejala | Penyebab dan solusi |
 |---|---|
 | Muncul tulisan kuning *Supabase belum diatur* | `.env.local` belum diisi, atau (di Vercel) variabel belum ditambahkan. Setelah mengubah variabel di Vercel, klik **Redeploy**. |
-| Daftar akun berhasil tapi tidak bisa masuk | Email belum dikonfirmasi. Cek email, atau matikan *Confirm email* (Bagian B). |
-| *email rate limit exceeded* | Batas email Supabase gratis terlampaui. Matikan *Confirm email* atau pasang SMTP sendiri. |
+| Pendaftaran email tetap meminta konfirmasi | Matikan *Confirm email* di Supabase (Bagian B); pendaftaran email tanpa verifikasi tidak mengirim email. |
 | Novel terbit tapi tidak muncul di Beranda | Status novel masih *Draf*. Ubah ke *Terbit* di pengaturan novel. |
 | Bab tidak bisa dibaca orang lain | Bab masih *Draf*, atau novelnya belum *Terbit*. |
 | Gagal unggah sampul | Gambar lebih dari 2 MB atau bukan JPG/PNG/WebP. |

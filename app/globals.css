@@ -46,6 +46,7 @@ label{display:block;font-weight:600;font-size:.9rem;margin-bottom:4px}
 textarea.input{resize:vertical;line-height:1.6}
 .field{margin-bottom:14px}.hint{font-size:.8rem;color:var(--color-text-muted);margin-top:4px}
 .card{background:var(--color-background);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:16px;box-shadow:var(--shadow-sm)}
+.auth-card{max-width:460px;margin:20px auto}.google-btn{gap:10px}.auth-divider{display:flex;align-items:center;gap:12px;margin:18px 0;color:var(--color-text-muted);font-size:.85rem}.auth-divider::before,.auth-divider::after{content:"";height:1px;background:var(--color-border);flex:1}.otp-input{letter-spacing:.25em;text-align:center;font-size:1.25rem}
 .badge{display:inline-block;padding:2px 10px;border-radius:99px;font-size:.78rem;font-weight:600;background:#EFF6FF;color:var(--color-primary-dark)}
 .badge.green{background:#DCFCE7;color:#166534}.badge.amber{background:#FEF3C7;color:#92400E}.badge.red{background:#FEE2E2;color:var(--color-danger-strong)}.badge.gray{background:#F1F5F9;color:var(--color-text-subtle)}
 .alert{padding:12px 14px;border-radius:var(--radius-md);font-size:.92rem;margin:12px 0}
@@ -61,6 +62,7 @@ textarea.input{resize:vertical;line-height:1.6}
 .tabs button.on{color:var(--color-primary);border-color:var(--color-primary)}
 
 .grid-novels{display:grid;grid-template-columns:repeat(2,1fr);gap:16px 12px}
+.writer-list{display:grid;gap:12px}.writer-item{display:flex;align-items:center;gap:14px}.writer-item-main{flex:1;min-width:0}.writer-item-main h2{margin:0 0 6px;font-size:1.08rem;overflow-wrap:anywhere}.writer-meta{gap:6px}.writer-actions{justify-content:flex-end}@media(max-width:640px){.writer-item{align-items:flex-start;flex-wrap:wrap}.writer-item-main{min-width:calc(100% - 80px)}.writer-actions{width:100%;justify-content:flex-start;margin-left:70px}}
 @media(min-width:600px){.grid-novels{grid-template-columns:repeat(3,1fr)}}
 @media(min-width:768px){.grid-novels{grid-template-columns:repeat(4,1fr)}}
 @media(min-width:1024px){.grid-novels{grid-template-columns:repeat(6,1fr);gap:20px 16px}}
@@ -68,6 +70,7 @@ textarea.input{resize:vertical;line-height:1.6}
 .novel-card p{margin:0 0 2px}
 .cover{position:relative;overflow:hidden;border-radius:var(--radius-md);background:#CBD5E1;box-shadow:var(--shadow-sm);display:flex;align-items:flex-end;aspect-ratio:3/4;color:#fff}
 .cover img{width:100%;height:100%;object-fit:cover;display:block}
+.avatar-placeholder{width:88px;height:88px;flex:none;border-radius:50%;display:grid;place-items:center;background:#DBEAFE;color:#1D4ED8;font-size:2rem;font-weight:700}
 .cover span{padding:10px;font-weight:700;font-size:.95rem;line-height:1.2;text-shadow:0 1px 3px rgba(0,0,0,.4)}
 .cover-sm{width:56px;flex:none}.cover-sm span{font-size:.55rem;padding:4px}
 .cover-md{width:100%}.cover-lg{width:150px;flex:none}

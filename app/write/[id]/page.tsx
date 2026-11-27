@@ -52,13 +52,15 @@ export default function NovelEditor() {
       if (error) { setBusy(false); return setMsg({ ok: false, t: errMsg(error) }); }
       novelId = data.id;
     } else {
-      const { error } = await supabase.from("novels").update(body).eq("id", id);
+      const { data: saved, error } = await supabase.from("novels").update(body).eq("id", id).select("id,status").maybeSingle();
       if (error) { setBusy(false); return setMsg({ ok: false, t: errMsg(error) }); }
-      await supabase.from("novel_genres").delete().eq("novel_id", id);
+      if (!saved) { setBusy(false); return setMsg({ ok: false, t: "Perubahan tidak tersimpan. Periksa izin database dan pastikan novel ini milik akun Anda." }); }
+      const { error: genreDeleteError } = await supabase.from("novel_genres").delete().eq("novel_id", id);
+      if (genreDeleteError) { setBusy(false); return setMsg({ ok: false, t: errMsg(genreDeleteError) }); }
     }
     if (picked.length) { const { error } = await supabase.from("novel_genres").insert(picked.map((g) => ({ novel_id: novelId, genre_id: g }))); if (error) { setBusy(false); return setMsg({ ok: false, t: errMsg(error) }); } }
     setBusy(false);
-    if (isNew) router.replace(`/write/${novelId}`); else setMsg({ ok: true, t: "Perubahan tersimpan." });
+    if (isNew) router.replace(`/write/${novelId}`); else setMsg({ ok: true, t: f.status === "published" ? "Novel berhasil diterbitkan. Muat ulang Beranda untuk melihatnya." : "Perubahan tersimpan." });
   }
 
   async function removeNovel() {

@@ -16,6 +16,7 @@ export default function Home() {
   const [q, setQ] = useState("");
   const [term, setTerm] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [resume, setResume] = useState<any>(null);
 
   useEffect(() => { supabase.from("genres").select("id,name").order("name").then(({ data }) => setGenres(data || [])); }, []);
@@ -28,14 +29,15 @@ export default function Home() {
 
   useEffect(() => {
     setLoading(true);
+    setLoadError("");
     const emb = genre ? "novel_genres!inner(genre_id,genres(name))" : "novel_genres(genres(name))";
     let query = supabase.from("novels")
-      .select(`id,slug,title,cover_url,publication_status,views_count,rating_average,rating_count,author:profiles(username,full_name),${emb}`)
+      .select(`id,slug,title,cover_url,publication_status,views_count,rating_average,rating_count,author:profiles!novels_author_id_fkey(username,full_name),${emb}`)
       .eq("status", "published").is("deleted_at", null).limit(48);
     if (term) query = query.ilike("title", `%${term.replace(/[%_]/g, "")}%`);
     if (genre) query = query.eq("novel_genres.genre_id", genre);
     query = sort === "popular" ? query.order("views_count", { ascending: false }) : sort === "rating" ? query.order("rating_average", { ascending: false }).order("rating_count", { ascending: false }) : query.order("created_at", { ascending: false });
-    query.then(({ data }) => { setNovels(data || []); setLoading(false); });
+    query.then(({ data, error }) => { setNovels(data || []); setLoadError(error?.message || ""); setLoading(false); });
   }, [genre, sort, term]);
 
   return (
@@ -72,7 +74,9 @@ export default function Home() {
             {SORTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         </div>
-        {loading ? <Loading /> : novels.length === 0 ? (
+        {loading ? <Loading /> : loadError ? (
+          <div className="alert alert-error" role="alert">Gagal memuat novel: {loadError}. Muat ulang halaman atau periksa koneksi Supabase.</div>
+        ) : novels.length === 0 ? (
           <Empty><p>Belum ada novel yang cocok.</p><Link href="/write" className="btn btn-primary">Jadi penulis pertama</Link></Empty>
         ) : <div className="grid-novels">{novels.map((n) => <NovelCard key={n.id} novel={n} />)}</div>}
       </div>

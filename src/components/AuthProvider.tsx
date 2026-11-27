@@ -13,7 +13,6 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [authVersion, setAuthVersion] = useState(0);
   useEffect(() => {
     if (!isSupabaseConfigured) { setLoading(false); return; }
     let alive = true;
@@ -21,13 +20,13 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
       setUser(nextUser);
       if (!nextUser) { setProfile(null); setLoading(false); return; }
       const { data } = await supabase.from("profiles").select("id,username,full_name,role").eq("id", nextUser.id).maybeSingle();
-      if (alive) { setProfile(data); setLoading(false); setAuthVersion((v) => v + 1); }
+      if (alive) { setProfile(data); setLoading(false); }
     };
     supabase.auth.getSession().then(({ data }) => load(data.session?.user || null));
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => { void load(session?.user || null); });
     return () => { alive = false; listener.subscription.unsubscribe(); };
   }, []);
-  return <AuthContext.Provider key={authVersion} value={{ user, profile, loading }}>{children}{!isSupabaseConfigured && <div className="config-banner" role="status">Supabase belum diatur. Isi <code>.env.local</code> untuk mengaktifkan login dan data.</div>}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, profile, loading }}>{children}{!isSupabaseConfigured && <div className="config-banner" role="status">Supabase belum diatur. Isi <code>.env.local</code> untuk mengaktifkan login dan data.</div>}</AuthContext.Provider>;
 }
 
 export function NeedLogin({ text = "Masuk dulu untuk melanjutkan." }: { text?: string }) {

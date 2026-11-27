@@ -26,7 +26,7 @@ export default function NovelPage() {
 
   const load = useCallback(async () => {
     const { data: n } = await supabase.from("novels")
-      .select("*, author:profiles(id,username,full_name,author_bio), novel_genres(genres(id,name))").eq("slug", slug).is("deleted_at", null).maybeSingle();
+      .select("*, author:profiles!novels_author_id_fkey(id,username,full_name,author_bio), novel_genres(genres(id,name))").eq("slug", slug).is("deleted_at", null).maybeSingle();
     setNovel(n);
     if (n) {
       const [c, r] = await Promise.all([
